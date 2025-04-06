@@ -1,7 +1,12 @@
+import pyfiglet
 import os
 import logging
 import concurrent.futures
+import argparse
 from abc import ABC, abstractmethod
+
+ascii_banner = pyfiglet.figlet_format("FILE SCANNER")
+print(ascii_banner)
 
 class Logger:
     def __init__(self, log_file="scanner.log"):
@@ -38,7 +43,7 @@ class FileScanner:
     def scan(self):
         # Scans directory and processes each file"
         if not os.path.exists(self.directory):
-            self.logger.error(f"Directory '{self.directory} not found.")
+            self.logger.error(f"Directory '{self.directory}' not found.")
             return
 
         self.logger.info(f"Scanning directory: {self.directory}")
@@ -56,9 +61,9 @@ class FileScanner:
                 file = futures[future]   
                 try:
                     future.result() # Retrieves any raised exceptions
-                    self.logger.info(f"Processed file: {file_path}")
+                    self.logger.info(f"Processed file: {file}")
                 except Exception as e:
-                    self.logger.error(f"Error processing {file_path}: {e}")
+                    self.logger.error(f"Error processing {file}: {e}")
 
 
 class TextFileProcessor(FileProcessor):
@@ -137,28 +142,48 @@ class PDFFileProcessor(FileProcessor):
             except Exception as e:
                 self.logger.error(f"Failed to process {file_path}: {e}")
 
-PROCESSORS = {
-    "text": TextFileProcessor,
-    "csv": CSVFileProcessor,
-    "json": JSONFileProcessor,
-    "image": ImageFileProcessor,
-    "pdf": PDFFileProcessor
-}
+
+
+# Allows CLI argument functionality
+def parse_args():
+    parser = argparse.ArgumentParser(description="Scan a directory and process selected file types")
+    parser.add_argument(
+        "directory", 
+        nargs="?", 
+        default=".", 
+        help="Directory to scan (default: current directory)"
+    )
+    parser.add_argument(
+        "--types",
+        nargs="+",
+        choices=["txt", "pdf", "csv", "json", "image"],
+        default=["txt", "pdf"],
+        help="File types to process (e.g. --types txt pdf)"
+    )
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
-    directory = input("Enter directory to scan: ")
+    args = parse_args()
     logger = Logger()
     
-    if not os.path.isdir(directory):
-        logger.error("Error: Invalid directory path. Please enter a valid folder.")
-    else:
-        print("Availabile processors:", ", ".join(PROCESSORS.keys()))
-        choice = input("Select a processor type: ").strip().lower()
+    # Map types to processor classes
+    processor_map = {
+        "txt": TextFileProcessor,
+        "pdf": PDFFileProcessor,
+        "csv": CSVFileProcessor,
+        "json": JSONFileProcessor,
+        "image": ImageFileProcessor,
+    }
+
+    for file_type in args.types:
+        processor_class = processor_map.get(file_type)
         
-        if choice in PROCESSORS:
-            processor = PROCESSORS[choice](logger)
-            scanner = FileScanner(directory, processor, logger, max_workers=8)
+        if processor_class:
+            logger.info(f"Running processor for .{file_type} files...")
+            processor = processor_class(logger)
+            scanner = FileScanner(args.directory, processor, logger, max_workers=8)
             scanner.scan()
         else:
-            logger.error("Invalid processor type selected.")
+            logger.error(f"No processor available for: {file_type}.")
 
