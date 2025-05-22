@@ -6,11 +6,15 @@ This is a repository containing cybersecurity-related projects I've worked on to
 
 ### File Scanner
 Python-based tool that scans a given directory and processes specified file type using customizable file processors
+
 [Go to File Scanner](./FileScanner)
 
 ### Port Scanner
 A multithreaded TCP port scanner written in python using the 'socket' and 'threading' modules
+
 [Go to Port Scanner](./PortScanner)
+
+---
 
 ## Getting Started
 To run any project, navigate to its folder and follow the instructions in its README
