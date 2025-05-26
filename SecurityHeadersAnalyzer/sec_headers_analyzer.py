@@ -6,11 +6,11 @@ colorama.init(autoreset=True)
 
 #Security headers with Correct Values
 sec_headers = {
-    'X-Frame-Options': 'deny',
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Content-Security-Policy': "default-src 'none'",
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+    'X-Frame-Options': ['deny', 'sameorigin'],
+    'X-Content-Type-Options': ['nosniff'],
+    'Referrer-Policy': ['no-referrer', 'strict-origin-when-cross-origin', 'same-origin'],
+    'Content-Security-Policy': ["default-src 'none'"], #Very strict, can expand later
+    'Strict-Transport-Security': ['max-age=31536000; includeSubDomains']
 }
 
 #Checks if security header is in HTTP response headers
@@ -25,10 +25,11 @@ def check_headers(url, output=None):
         print(f"\n[+] Checking headers for {url}\n")
         report = [f"Results for {url}:\n"]
 
-        for hdr,expected_val in sec_headers.items():
+        for hdr,expected_vals in sec_headers.items():
             if hdr in headers:
                 actual_val = headers.get(hdr)
-                if expected_val == actual_val:
+                # List comprehension to check if actual value is in list of expected values
+                if any(expected.lower() in actual_val.lower() for expected in expected_vals): 
                     print(f'{Fore.GREEN}[+]{Fore.RESET} {hdr}: Acceptable ({actual_val})')
                     report.append(f'[+] {hdr}: Acceptable ({actual_val})')
                 else:
@@ -65,7 +66,12 @@ if __name__ == "__main__":
         check_headers(args.url, args.output)
     
     elif args.file:
-        with open(args.file, 'r') as f:
-            for line in f:
-                check_headers(line.strip(), args.output)
-    
+        try:
+            with open(args.file, 'r') as f:
+                for line in f:
+                    url = line.strip()
+                    if url:
+                        check_headers(url, args.output)
+       
+        except FileExistsError:
+            print(f"[!] Could not open file {args.file}")
