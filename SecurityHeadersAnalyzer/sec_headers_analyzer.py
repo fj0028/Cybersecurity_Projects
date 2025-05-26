@@ -1,5 +1,8 @@
 import requests
 import argparse
+import colorama 
+from colorama import Fore
+colorama.init(autoreset=True)
 
 #Security headers with Correct Values
 sec_headers = {
@@ -11,29 +14,58 @@ sec_headers = {
 }
 
 #Checks if security header is in HTTP response headers
-def check_headers(url):
+def check_headers(url, output=None):
     try:
-        response = requests.get(url, timeout=5)
+        if not url.startswith("http"):
+            url = "https://" + url
+        
+        response = requests.get(url, timeout=5, allow_redirects=True)
         headers = response.headers
 
         print(f"\n[+] Checking headers for {url}\n")
+        report = [f"Results for {url}:\n"]
 
         for hdr,expected_val in sec_headers.items():
             if hdr in headers:
                 actual_val = headers.get(hdr)
                 if expected_val == actual_val:
-                    print(f'[+] {hdr}: OK ({actual_val})')
+                    print(f'{Fore.GREEN}[+]{Fore.RESET} {hdr}: Acceptable ({actual_val})')
+                    report.append(f'[+] {hdr}: Acceptable ({actual_val})')
                 else:
-                    print(f'[!] {hdr}: Weak or misconfigured ({actual_val})')    
+                    print(f'{Fore.YELLOW}[!]{Fore.RESET} {hdr}: Not Acceptable ({actual_val})')    
+                    report.append(f'[!] {hdr}: Not Acceptable ({actual_val})')    
             else:
-                print(f'[-] {hdr}: Missing')
+                print(f'{Fore.RED}[-]{Fore.RESET} {hdr}: Missing')
+                report.append(f'[-] {hdr}: Missing')
+        
+        report.append("\n")
+        
+        if output:
+            with open(output, 'a') as f:
+                for line in report:
+                    f.write(line + '\n')
     
     except requests.exceptions.RequestException as e:
         print(f'[!] Error fetching {url}: {e}')
+        if output:
+            with open(output, 'a') as f:
+                f.write(f'Error fetching {url}: {e}\n\n')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check security headers for a website")
-    parser.add_argument("url", help="Target URL (e.g https://example.com)")
+    parser.add_argument("--url", help="Target URL (e.g https://example.com)")
+    parser.add_argument("--file", help="File with list of target URLs")
+    parser.add_argument("--output", help="Save resutls to a text file")
     args = parser.parse_args()
 
-    check_headers(args.url)
+    if not args.url and not args.file:
+        parser.error("You must provide either --url or --file")
+    
+    if args.url:
+        check_headers(args.url, args.output)
+    
+    elif args.file:
+        with open(args.file, 'r') as f:
+            for line in f:
+                check_headers(line.strip(), args.output)
+    
