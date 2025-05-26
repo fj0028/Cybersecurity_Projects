@@ -1,5 +1,6 @@
 import requests
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import colorama 
 from colorama import Fore
 colorama.init(autoreset=True)
@@ -52,6 +53,11 @@ def check_headers(url, output=None):
             with open(output, 'a') as f:
                 f.write(f'Error fetching {url}: {e}\n\n')
 
+def main(urls, output=None):
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(lambda url: check_headers(url, output), urls)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check security headers for a website")
     parser.add_argument("--url", help="Target URL (e.g https://example.com)")
@@ -68,10 +74,8 @@ if __name__ == "__main__":
     elif args.file:
         try:
             with open(args.file, 'r') as f:
-                for line in f:
-                    url = line.strip()
-                    if url:
-                        check_headers(url, args.output)
+                urls = [line.strip() for line in f if line.strip()]
+                main(urls, args.output)
        
         except FileExistsError:
             print(f"[!] Could not open file {args.file}")
