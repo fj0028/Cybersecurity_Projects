@@ -14,6 +14,11 @@ A multithreaded TCP port scanner written in python using the 'socket' and 'threa
 
 [Go to Port Scanner](./PortScanner)
 
+### Security Headers Analyzer
+A lightweight Python tool that checks for common HTTP security headers on a given URL or list of URLs. This project is designed to help blue teamers and developers identify missing or misconfigured security headers that could leave web applications vulnerable.
+
+[Go to Security Headers Analyzer](./SecurityHeadersAnalyzer)
+
 ---
 
 ## Getting Started
