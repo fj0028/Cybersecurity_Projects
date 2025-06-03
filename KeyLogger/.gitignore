@@ -1,0 +1,17 @@
+# Compiled Python files
+__pycache__/
+*.pyc
+
+# PyInstaller build files
+dist/
+build/
+*.spec
+*.exe
+
+# Log files
+logs/
+*.log
+
+# IDE files (optional)
+.vscode/
+*.code-workspace
