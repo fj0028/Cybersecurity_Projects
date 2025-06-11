@@ -16,7 +16,7 @@ for decrypting_file in encrypted_files:
     fernet = Fernet(key)
     decrypted = fernet.decrypt(data)
 
-    with open(encrypted_files, 'wb') as f:
+    with open(encrypted_files[count], 'wb') as f:
         f.write(decrypted)
 
     count += 1
