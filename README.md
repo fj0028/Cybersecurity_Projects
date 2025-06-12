@@ -3,11 +3,15 @@
 This is a repository containing cybersecurity-related projects I've worked on to develop practical skills such as scanning, automation, and network security
 
 ## Projects
-
 ### File Scanner
 Python-based tool that scans a given directory and processes specified file type using customizable file processors
 
 [Go to File Scanner](./FileScanner)
+
+### Key Logger
+Python script that captures system and user data (keystrokes, clipboard, audio, screenshot), encrypts it, and exfiltrates it via email for cybersecurity testing or surveillance simulation.
+
+[Go to Key Logger](./KeyLogger)
 
 ### Port Scanner
 A multithreaded TCP port scanner written in python using the 'socket' and 'threading' modules
